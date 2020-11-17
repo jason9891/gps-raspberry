@@ -1,0 +1,204 @@
+import RPi.GPIO as GPIO
+import serial
+import time
+from datetime import datetime
+import string
+import pynmea2
+import json
+from pprint import pprint
+import random
+import os
+
+a=0
+b=0
+imei="012207000319845"
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(7,GPIO.OUT)
+ser=serial.Serial(port="/dev/ttyS0", baudrate=115200, timeout=1,parity=serial.PARITY_NONE,bytesize=serial.EIGHTBITS,stopbits=serial.STOPBITS_ONE)
+ahora1=datetime.now()
+datos0={
+    str(ahora1):'1'
+    }
+cadena_json=json.dumps(datos0)
+with open('datos0.json','w')as f:
+    json.dump(datos0, f)
+
+GPIO.output(7, True)
+
+# ser.write('ATE0'+'\r\n')
+# rcv = ser.read(5)
+# print rcv
+# time.sleep(1)
+
+# while True:
+#     ser.write('AT+CSQ'+'\r\n')
+#     rcv = ser.read(30)
+#     print rcv
+#     time.sleep(1)
+#     if rcv.count('Call Ready')==1:
+#         break
+
+ahora2=datetime.now()
+datos1={
+    str(ahora2):'1'
+    }
+cadena_json=json.dumps(datos1)
+with open('datos1.json','w')as f:
+    json.dump(datos1, f)
+
+GPIO.output(7, False)
+
+def simconf():
+    ser.write('AT'+'\r\n')
+    rcv = ser.read(10)
+    print rcv
+    time.sleep(1)
+ 
+    ser.write('ATE0'+'\r\n')
+    rcv = ser.read(10)
+    print rcv
+    time.sleep(1)
+ 
+    ser.write('AT+sapbr=3,1,"contype","gprs"'+'\r\n')      # Disable the Echo
+    rcv = ser.read(29)
+    print rcv
+    time.sleep(1)
+
+    ser.write('AT+SAPBR=3,1,"APN","entel.pe"'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+
+    ser.write('AT+SAPBR=3,1,"USER",""'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+
+    ser.write('AT+SAPBR=3,1,"PWD",""'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+
+    ser.write('AT+cgatt=1'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+
+    ser.write('AT+sapbr=0,1'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+
+    ser.write('AT+sapbr=1,1'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+   
+   
+    ser.write('AT+HTTPTERM'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+
+    ser.write('AT+HTTPINIT'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+ 
+    ser.write('AT+HTTPSSL=1'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+
+    ser.write('AT+HTTPPARA="CID",1'+'\r\n')      # Disable the Echo
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+
+    ser.write('AT+httppara="URL","https://serlogportal.com/api/v1.0/gps/fleet-tracking"'+'\r\n')
+    rcv = ser.read(30)
+    print rcv
+    time.sleep(1)
+    return(rcv)
+# while True:
+simconf()
+#     if simconf().count('OK')==1:
+#         break
+datos2={
+    'a':'1'
+    }
+cadena_json=json.dumps(datos2)
+with open('datos2.json','w')as f:
+    json.dump(datos2, f)
+
+GPIO.output(7, True)
+
+datos3={
+    }
+cadena_json=json.dumps(datos3)
+with open('datos3.json','w')as f:
+    json.dump(datos3, f)
+
+ser.write('AT+httppara="CONTENT","application/json"'+'\r\n')      # Disable the Echo
+rcv = ser.read(30)
+print rcv
+
+while True:
+    try:
+        while True:
+            ser1=serial.Serial(port="/dev/ttyUSB0", baudrate=9600, timeout=0.5)
+            dat=ser1.read(500)
+            filtrado='$'+str(list(filter(lambda x:(x.count('GPRMC')==1),dat.split('$')))[0])
+            if filtrado.count('GPRMC') == 1:
+                newmsg=pynmea2.parse(filtrado)
+                lat=newmsg.latitude
+                lng=newmsg.longitude
+                if lat!=0.0 and lng!=0.0:
+                    gps = str(lat) + "," + str(lng)
+                    ahora=datetime.now()
+                    break
+       
+        data='''{
+    "imei": \"'''+str(imei)+'''\",
+    "latitud": \"'''+str(lat)+'''\",
+    "longitud": \"'''+str(lng)+'''\",
+    "dispositivosgps":"6"
+}'''
+        ser.write('AT+HTTPDATA='+str(len(data))+',100000'+'\r\n')      # Disable the Echo
+        rcv = ser.read(50)
+        print rcv
+   
+        ser.write(data)
+        rcv = ser.read(50)
+        print rcv
+   
+        ser.write('AT+HTTPACTION=1'+'\r\n')      # Disable the Echo
+       
+        while True:
+            rcv = ser.read(30)
+            if rcv.count('HTTP')==1:
+                break
+        print(rcv)
+        if rcv.count('1,201')==1:
+            a=a+1
+        if rcv.count('1,601')==1:
+            b=b+1
+        print (a)
+        print (b)
+        datos3={
+                str(lat):str(lng),
+                str(a):str(b),
+                'hora':str(ahora)
+            }
+        GPIO.output(7, False)
+       
+        cadena=json.dumps(datos3)
+        with open('datos3.json','a')as f:
+            cadena=json.dumps(datos3)
+            f.write(cadena)
+            f.write('\n')
+        GPIO.output(7, True)
+    except:
+        GPIO.output(7,False)
+
+	
